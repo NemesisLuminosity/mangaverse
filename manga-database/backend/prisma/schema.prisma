@@ -1,0 +1,119 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model for authentication and user management
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String?
+  username      String    @unique
+  role          String    @default("user") // user, moderator, admin
+  emailVerified Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  mangaLists    UserMangaList[]
+  favorites     UserFavorite[]
+  reviews       UserReview[]
+
+  @@map("users")
+}
+
+// Manga model for storing manga information
+model Manga {
+  id              String    @id @default(cuid())
+  title           String
+  author          String?
+  genre           String?
+  status          String?   // ongoing, completed, hiatus, cancelled
+  description     String?
+  coverImagePath  String?
+  externalId      String?   // ID from external APIs
+  sourceApi       String?   // myanimelist, anilist, etc.
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  userLists       UserMangaList[]
+  favorites       UserFavorite[]
+  reviews         UserReview[]
+
+  // Indexes for performance
+  @@index([title])
+  @@index([author])
+  @@index([genre])
+  @@index([status])
+  @@map("manga")
+}
+
+// User manga lists for tracking reading progress
+model UserMangaList {
+  id        String   @id @default(cuid())
+  userId    String
+  mangaId   String
+  listType  String   // reading, completed, want_to_read, dropped
+  rating    Int?     @db.SmallInt // 1-5 rating
+  review    String?
+  progress  Int      @default(0) // reading progress
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  manga     Manga    @relation(fields: [mangaId], references: [id], onDelete: Cascade)
+
+  // Unique constraint to prevent duplicate entries
+  @@unique([userId, mangaId, listType])
+  @@index([userId])
+  @@index([mangaId])
+  @@map("user_manga_lists")
+}
+
+// User favorites
+model UserFavorite {
+  id        String   @id @default(cuid())
+  userId    String
+  mangaId   String
+  createdAt DateTime @default(now())
+
+  // Relations
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  manga     Manga    @relation(fields: [mangaId], references: [id], onDelete: Cascade)
+
+  // Unique constraint to prevent duplicate favorites
+  @@unique([userId, mangaId])
+  @@index([userId])
+  @@index([mangaId])
+  @@map("user_favorites")
+}
+
+// User reviews for manga
+model UserReview {
+  id        String   @id @default(cuid())
+  userId    String
+  mangaId   String
+  rating    Int      @db.SmallInt // 1-5 rating
+  review    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  manga     Manga    @relation(fields: [mangaId], references: [id], onDelete: Cascade)
+
+  // Unique constraint to prevent duplicate reviews
+  @@unique([userId, mangaId])
+  @@index([userId])
+  @@index([mangaId])
+  @@map("user_reviews")
+}
